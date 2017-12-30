@@ -1,5 +1,6 @@
 package org.bhaskar.java.messenger.resources;
 
+import java.net.URI;
 import java.util.List;
 
 import javax.ws.rs.BeanParam;
@@ -12,14 +13,17 @@ import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
+import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
+import javax.ws.rs.core.UriInfo;
 
 import org.bhaskar.java.messenger.model.Message;
 import org.bhaskar.java.messenger.service.MessageService;
 
 @Path("/messages")
 @Consumes(MediaType.APPLICATION_JSON)
-@Produces(MediaType.APPLICATION_JSON)
+@Produces(value = {MediaType.APPLICATION_JSON, MediaType.TEXT_XML})
 
 public class MessageResource {
 
@@ -56,18 +60,67 @@ public class MessageResource {
 	public String test() {
 		return "test @Path";
 	}
-
+*/
 	@GET
 	@Path("/{messageId}")
-	public Message takingPathParam(@PathParam("messageId") long messageId) {
-		return messageService.getMessage(messageId);	
+	public Message takingPathParam(@PathParam("messageId") long messageId,@Context UriInfo uriInfo) {
+		Message message =  messageService.getMessage(messageId);
+		String uriSelf = getUriForSelf(uriInfo, message);
+		String uriProfile = getUriForProfile(uriInfo, message);
+		String uriComments = getUriForComments(uriInfo, message);
+		message.addLink(uriSelf, "self");
+		message.addLink(uriProfile, "Profile");
+		message.addLink(uriComments, "Comments");
+		return message;
 	}
-*/	
+
+	private String getUriForComments(UriInfo uriInfo, Message message) {
+		String uri = uriInfo.getBaseUriBuilder()
+				.path(MessageResource.class)
+				.path(MessageResource.class, "getCommentResource")
+				.path(CommentResource.class)
+				.resolveTemplate("messageId", message.getId())
+				.build()
+				.toString();
+		return uri;
+}
+
+	private String getUriForProfile(UriInfo uriInfo, Message message) {
+	String uri = uriInfo.getBaseUriBuilder()
+			.path(ProfileResource.class)
+			.path(message.getAuthor())
+			.build()
+			.toString();
+	return uri;
+}
+
+	private String getUriForSelf(UriInfo uriInfo, Message message) {
+		String uri = uriInfo.getBaseUriBuilder()
+				.path(MessageResource.class)
+				.path(Long.toString(message.getId()))
+				.build()
+				.toString();
+		return uri;
+	}
+	
+	
+/*	
 	@POST
 	public Message addMessage(Message message) {
 		return messageService.addMessage(message);
 	}
-	
+*/	
+	//returning URI in header & status code changes to 201-created
+	@POST
+	public Response addMessage(Message message,@Context UriInfo uriInfo) {
+		Message newMessage =  messageService.addMessage(message);
+		String newId = String.valueOf(newMessage.getId());
+		URI uri = uriInfo.getAbsolutePathBuilder().path(newId).build(); 
+		return Response.created(uri)
+					   .entity(newMessage)
+					   .build();
+	}
+
 	@PUT
 	@Path("/{messageId}")
 	public Message updateMessage(@PathParam("messageId") long messageId, Message message) {
@@ -79,6 +132,12 @@ public class MessageResource {
 	@Path("/{messageId}")
 	public void deleteMessage(@PathParam("messageId") long messageId) {
 		messageService.deleteMessage(messageId);
+	}
+	
+	
+	@Path("{messageId}/comments")
+	public CommentResource getCommentResource() {
+		return new CommentResource();
 	}
 	
 }

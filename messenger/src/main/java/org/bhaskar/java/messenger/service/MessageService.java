@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.bhaskar.java.messenger.database.DatabaseClass;
+import org.bhaskar.java.messenger.exception.DataNotFoundException;
 import org.bhaskar.java.messenger.model.Message;
 
 public class MessageService {
@@ -42,8 +43,12 @@ public class MessageService {
 	
 	
 	
-	public Message getMessage(Long id) {	
-		return messages.get(id);
+	public Message getMessage(long id) {	
+		Message message = messages.get(id);
+		if(message == null) {
+			throw new DataNotFoundException("Message with id " + id + " not found");
+		}
+		return message;
 	}
 	public Message addMessage(Message message) {
 		message.setId(messages.size()+1);
